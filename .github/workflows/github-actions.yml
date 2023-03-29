@@ -39,7 +39,7 @@ jobs:
         uses: google-github-actions/deploy-cloudrun@v0
         with:
           service: ${{ env.REPOSITORY }}
-          suffix: eng:${{ steps.extract_branch.outputs.branch }}
+          suffix: ${{ steps.extract_branch.outputs.branch }}
           region: ${{ env.REGION }}
           # NOTE: If required, update to the appropriate source folder
           source: ./run/
