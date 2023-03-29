@@ -9,8 +9,8 @@ on:
 env:
   PROJECT_ID: ${{ secrets.PROJECT_ID }}
   REPOSITORY: ${{ github.event.repository.name }}
-  BRANCH: ${GITHUB_REF##*/}
-  REGION: europe-west1 # TODO: update Cloud Run service region
+  BRANCH: ${{GITHUB_REF##*/}}
+  REGION: europe-west1 # DEVELOPER: update Cloud Run service region
 
 jobs:
   deploy:
@@ -39,6 +39,7 @@ jobs:
           region: ${{ env.REGION }}
           # NOTE: If required, update to the appropriate source folder
           source: ./run/
+          env_vars_file: ./run/.env
 
       # If required, use the Cloud Run url output in later steps
       - name: Show Output

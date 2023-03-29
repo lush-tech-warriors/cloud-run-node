@@ -1,1 +1,0 @@
-next_public_host="https://dbb-sequencer-usixv4ae5a-nw.a.run.app"
