@@ -8,7 +8,7 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.PROJECT_ID }}
-  SERVICE: '${{ github.event.repository.name }}'-'${GITHUB_REF##*/}'
+  SERVICE: ${{ github.event.repository.name }}-${GITHUB_REF##*/}
   REGION: europe-west1 # TODO: update Cloud Run service region
 
 jobs:
