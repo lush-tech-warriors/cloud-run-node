@@ -1,0 +1,241 @@
+# This workflow will deploy source code on Cloud Run when a commit is pushed to the $default-branch branch
+#
+# Overview:
+#
+# 1. Authenticate to Google Cloud
+# 2. Deploy it to Cloud Run
+#
+# To configure this workflow:
+#
+# 1. Ensure the required Google Cloud APIs are enabled:
+#
+#    Cloud Run            run.googleapis.com
+#    Cloud Build          cloudbuild.googleapis.com
+#    Artifact Registry    artifactregistry.googleapis.com
+#
+# 2. Create and configure Workload Identity Federation for GitHub (https://github.com/google-github-actions/auth#setting-up-workload-identity-federation)
+#
+# 3. Ensure the required IAM permissions are granted
+#
+#    Cloud Run
+#      roles/run.admin
+#      roles/iam.serviceAccountUser     (to act as the Cloud Run runtime service account)
+#
+#    Cloud Build
+#      roles/cloudbuild.builds.editor
+#
+#    Cloud Storage
+#      roles/storage.objectAdmin
+#
+#    Artifact Registry
+#      roles/artifactregistry.admin     (project or repository level)
+#
+#    NOTE: You should always follow the principle of least privilege when assigning IAM roles
+#
+# 4. Create GitHub secrets for WIF_PROVIDER and WIF_SERVICE_ACCOUNT
+#
+# 5. Change the values for the SERVICE and REGION environment variables (below).
+#
+# For more support on how to run this workflow, please visit https://github.com/marketplace/actions/deploy-to-cloud-run
+#
+# Further reading:
+#   Cloud Run runtime service account   - https://cloud.google.com/run/docs/securing/service-identity
+#   Cloud Run IAM permissions           - https://cloud.google.com/run/docs/deploying-source-code#permissions_required_to_deploy
+#   Cloud Run builds from source        - https://cloud.google.com/run/docs/deploying-source-code
+#   Principle of least privilege        - https://cloud.google.com/blog/products/identity-security/dont-get-pwned-practicing-the-principle-of-least-privilege
+
+name: Deploy to Cloud Run from Source
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+
+env:
+  PROJECT_ID: ${{ secrets.PROJECT_ID }}
+  SERVICE: '${{ github.event.repository.name }}'-'${GITHUB_REF##*/}'
+  REGION: europe-west1 # TODO: update Cloud Run service region
+
+jobs:
+  deploy:
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      NOTE: Alternative option - authentication via credentials json
+      - name: Google Auth
+        id: auth
+        uses: 'google-github-actions/auth@v0'
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v0
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          # NOTE: If required, update to the appropriate source folder
+          source: ./run/
+
+      # If required, use the Cloud Run url output in later steps
+      - name: Show Output
+        run: echo ${{ steps.deploy.outputs.url }}
+
+
+# on:
+#   push:
+#     branches:
+#       - main
+#       - staging
+#   pull_request:
+
+# name: Service Build and Deploy
+# env:
+#   SERVICE: ${{ github.event.repository.name }}
+  # BACKEND: backend.conf
+  # TFVARS: terraform.tfvars
+
+# jobs:
+#   build_and_push:
+#     name: 'APP Container Build & Push'
+#     runs-on: ubuntu-latest
+#     needs:
+#       - prepare
+#     env:
+#       # Get secret names
+#       GCP_SA_KEY_NAME: ${{ needs.prepare.outputs.gcp_sa_key_name }}
+#       PROJECT_ID_NAME: ${{ needs.prepare.outputs.project_id_name }}
+
+#     steps:
+#         # Checkout the repository to the GitHub Actions runner
+#       - name: Checkout
+#         uses: actions/checkout@v2
+
+#         # prep authenticate with Google clous for steps that follow
+#       - id: 'auth'
+#         name: 'Authenticate to Google Cloud'
+#         uses: 'google-github-actions/auth@v0'
+#         with:
+#           credentials_json: '${{ secrets[env.GCP_SA_KEY_NAME] }}'
+
+#       # register gcloud as the credential helper for all Google-supported Docker registries
+#       - name: Authorize Docker push
+#         run: gcloud auth configure-docker
+
+#       # build the Docker image and push to the Google Container Registry
+#       - name: Build and Push Container
+#         run: |-
+#           docker build -t gcr.io/$PROJECT_ID/$SERVICE:$SHA ./run
+#           docker push gcr.io/$PROJECT_ID/$SERVICE:$SHA
+#         env:
+#           PROJECT_ID: ${{ secrets[env.PROJECT_ID_NAME] }}
+#           SERVICE: ${{ env.SERVICE }}
+#           SHA: ${{ github.sha }}
+
+#   cloud_run:
+#     # ...
+
+#     permissions:
+#       contents: 'read'
+#       id-token: 'write'
+
+#     steps:
+#     - uses: 'actions/checkout@v3'
+
+#     - uses: 'google-github-actions/auth@v1'
+#       with:
+#         workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider'
+#         service_account: 'my-service-account@my-project.iam.gserviceaccount.com'
+
+#     - id: 'deploy'
+#       uses: 'google-github-actions/deploy-cloudrun@v1'
+#       with:
+#         service: 'hello-cloud-run'
+#         image: 'gcr.io/cloudrun/hello'
+
+#     - name: 'Use output'
+#       run: 'curl "${{ steps.deploy.outputs.url }}"'
+
+  # terraform:
+  #   name: 'Terraform'
+  #   runs-on: ubuntu-latest
+  #   needs:
+  #     - app
+  #     - prepare
+  #   env:
+  #     # Get secret names
+  #     GCP_SA_KEY_NAME: ${{ needs.prepare.outputs.gcp_sa_key_name }}
+  #     PROJECT_ID_NAME: ${{ needs.prepare.outputs.project_id_name }}
+
+
+  #   # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+  #   defaults:
+  #     run:
+  #       shell: bash
+  #       working-directory: infra
+
+  #   steps:
+
+  #     # Checkout the repository to the GitHub Actions runner
+  #     - name: Checkout
+  #       uses: actions/checkout@v2
+
+  #     - name: Set environment variables
+  #       run: echo "GIT_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
+
+  #     # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+  #     - name: Setup Terraform
+  #       uses: hashicorp/setup-terraform@v2
+
+
+  #     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+  #     - name: Terraform Init
+  #       run: terraform init -backend-config=${GIT_BRANCH}/$BACKEND
+  #       env:
+  #         GOOGLE_CREDENTIALS: ${{ secrets[env.GCP_SA_KEY_NAME] }}
+  #         BACKEND: ${{ env.BACKEND }}
+
+  #     # Checks that all Terraform configuration files adhere to a canonical format
+  #     - name: Terraform Format
+  #       run: terraform fmt -check
+
+  #     # Generates an execution plan for Terraform
+  #     - name: Terraform Plan
+  #       run: |
+  #         terraform plan \
+  #         -var-file=${GIT_BRANCH}/$TFVARS \
+  #         -var=project_id=$PROJECT_ID \
+  #         -var=service_name=$SERVICE \
+  #         -var=cloudrun_image=gcr.io/$PROJECT_ID/$SERVICE:$SHA 
+  #       env:
+  #         GOOGLE_CREDENTIALS: ${{ secrets[env.GCP_SA_KEY_NAME] }}
+  #         TFVARS: ${{ env.TFVARS }}
+  #         PROJECT_ID: ${{ secrets[env.PROJECT_ID_NAME] }}
+  #         SERVICE: ${{ env.SERVICE }}
+  #         SHA: ${{ github.sha }}
+
+
+  #       # On push to main, build or change infrastructure according to Terraform configuration files
+  #       # Note: It is recommended to set up a required "strict" status check in your repository for "Terraform Cloud". See the documentation on "strict" required status checks for more information: https://help.github.com/en/github/administering-a-repository/types-of-required-status-checks
+  #     - name: Terraform Apply
+  #       if: github.ref == 'refs/heads/staging' ||  github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #       run: |
+  #         terraform apply \
+  #         -auto-approve \
+  #         -var-file=${GIT_BRANCH}/$TFVARS \
+  #         -var=project_id=$PROJECT_ID \
+  #         -var=service_name=$SERVICE \
+  #         -var=cloudrun_image=gcr.io/$PROJECT_ID/$SERVICE:$SHA
+  #       env:
+  #         GOOGLE_CREDENTIALS: ${{ secrets[env.GCP_SA_KEY_NAME] }}
+  #         TFVARS: ${{ env.TFVARS }}
+  #         PROJECT_ID: ${{ secrets[env.PROJECT_ID_NAME] }}
+  #         SERVICE: ${{ env.SERVICE }}
+  #         SHA: ${{ github.sha }}
