@@ -5,11 +5,12 @@ const express = require('express');
 // Constants
 const PORT = 8080;
 const HOST = '0.0.0.0';
+const ENV = process.env.ENV
 
 // App
 const app = express();
 app.get('/', (req, res) => {
-  res.send('Hello James');
+  res.send('Hello ' + ENV);
 });
 
 app.listen(PORT, HOST, () => {
