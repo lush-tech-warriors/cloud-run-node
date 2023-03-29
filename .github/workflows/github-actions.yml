@@ -9,7 +9,6 @@ on:
 env:
   PROJECT_ID: ${{ secrets.PROJECT_ID }}
   REPOSITORY: ${{ github.event.repository.name }}
-  BRANCH: ${{GITHUB_REF##*/}}
   REGION: europe-west1 # DEVELOPER: update Cloud Run service region
 
 jobs:
@@ -22,6 +21,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      
+      - name: Extract branch name
+        shell: bash
+        run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >>$GITHUB_OUTPUT
+        id: extract_branch
 
 
       - name: Google Auth
@@ -35,7 +39,7 @@ jobs:
         uses: google-github-actions/deploy-cloudrun@v0
         with:
           service: ${{ env.REPOSITORY }}
-          suffix: ${{ env.BRANCH }}
+          suffix: eng:${{ steps.extract_branch.outputs.branch }}
           region: ${{ env.REGION }}
           # NOTE: If required, update to the appropriate source folder
           source: ./run/
